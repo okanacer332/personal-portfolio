@@ -550,6 +550,123 @@ export default function ImmersiveScene() {
       [0, 0.28, -3.9],
     );
 
+    const seatedPerson = new THREE.Group();
+    room.add(seatedPerson);
+
+    const seatedSkinMaterial = new THREE.MeshStandardMaterial({
+      color: "#efcfbc",
+      roughness: 0.92,
+    });
+    const seatedHairMaterial = new THREE.MeshStandardMaterial({
+      color: "#2f241d",
+      roughness: 0.88,
+    });
+    const seatedTopMaterial = new THREE.MeshStandardMaterial({
+      color: "#3a4758",
+      roughness: 0.94,
+    });
+    const seatedPantsMaterial = new THREE.MeshStandardMaterial({
+      color: "#6f7f90",
+      roughness: 0.92,
+    });
+    const seatedShoeMaterial = new THREE.MeshStandardMaterial({
+      color: "#41352e",
+      roughness: 0.88,
+    });
+
+    const seatedTorso = addMesh(
+      seatedPerson,
+      new THREE.CapsuleGeometry(0.3, 0.86, 6, 10),
+      seatedTopMaterial,
+      [0, 1.12, -4.08],
+      [-0.16, 0, 0],
+    );
+    const seatedHead = addMesh(
+      seatedPerson,
+      new THREE.SphereGeometry(0.29, 20, 20),
+      seatedSkinMaterial,
+      [0, 1.88, -4.24],
+    );
+    const seatedHair = addMesh(
+      seatedPerson,
+      new THREE.SphereGeometry(0.3, 20, 20),
+      seatedHairMaterial,
+      [0, 1.98, -4.2],
+    );
+    seatedHair.scale.set(1.02, 0.72, 1.02);
+
+    const seatedUpperArmLeft = addMesh(
+      seatedPerson,
+      new THREE.CapsuleGeometry(0.08, 0.34, 4, 8),
+      seatedSkinMaterial,
+      [-0.34, 1.22, -4.34],
+      [-1.1, 0.08, -0.16],
+    );
+    const seatedUpperArmRight = addMesh(
+      seatedPerson,
+      new THREE.CapsuleGeometry(0.08, 0.34, 4, 8),
+      seatedSkinMaterial,
+      [0.34, 1.22, -4.34],
+      [-1.1, -0.08, 0.16],
+    );
+    const seatedForearmLeft = addMesh(
+      seatedPerson,
+      new THREE.CapsuleGeometry(0.07, 0.3, 4, 8),
+      seatedSkinMaterial,
+      [-0.42, 1.04, -4.74],
+      [-0.64, 0.04, -0.08],
+    );
+    const seatedForearmRight = addMesh(
+      seatedPerson,
+      new THREE.CapsuleGeometry(0.07, 0.3, 4, 8),
+      seatedSkinMaterial,
+      [0.42, 1.04, -4.74],
+      [-0.64, -0.04, 0.08],
+    );
+
+    const seatedThighLeft = addMesh(
+      seatedPerson,
+      new THREE.CapsuleGeometry(0.1, 0.42, 4, 8),
+      seatedPantsMaterial,
+      [-0.18, 0.68, -4.08],
+      [Math.PI / 2 - 0.12, 0, 0],
+    );
+    const seatedThighRight = addMesh(
+      seatedPerson,
+      new THREE.CapsuleGeometry(0.1, 0.42, 4, 8),
+      seatedPantsMaterial,
+      [0.18, 0.68, -4.08],
+      [Math.PI / 2 - 0.12, 0, 0],
+    );
+    const seatedCalfLeft = addMesh(
+      seatedPerson,
+      new THREE.CapsuleGeometry(0.09, 0.52, 4, 8),
+      seatedPantsMaterial,
+      [-0.18, 0.38, -4.42],
+      [0.06, 0, 0],
+    );
+    const seatedCalfRight = addMesh(
+      seatedPerson,
+      new THREE.CapsuleGeometry(0.09, 0.52, 4, 8),
+      seatedPantsMaterial,
+      [0.18, 0.38, -4.42],
+      [0.06, 0, 0],
+    );
+    const seatedFootLeft = addMesh(
+      seatedPerson,
+      new THREE.BoxGeometry(0.22, 0.1, 0.42),
+      seatedShoeMaterial,
+      [-0.18, 0.06, -4.3],
+      [0, 0, 0],
+    );
+    const seatedFootRight = addMesh(
+      seatedPerson,
+      new THREE.BoxGeometry(0.22, 0.1, 0.42),
+      seatedShoeMaterial,
+      [0.18, 0.06, -4.3],
+      [0, 0, 0],
+    );
+
     const shelf = new THREE.Group();
     room.add(shelf);
 
@@ -913,6 +1030,8 @@ export default function ImmersiveScene() {
       const walking = inputZ !== 0;
       const swing = walking ? Math.sin(elapsed * 11) * 0.55 : 0;
       const bounce = walking ? Math.abs(Math.sin(elapsed * 11)) * 0.06 : 0;
+      const seatedBreath = Math.sin(elapsed * 1.4) * 0.018;
+      const typing = Math.sin(elapsed * 2.8) * 0.05;
 
       body.position.y = 1.18 + bounce;
       head.position.y = 2.02 + bounce * 0.4;
@@ -922,6 +1041,24 @@ export default function ImmersiveScene() {
       rightLeg.rotation.x = -swing;
       leftFoot.position.y = 0.05 + bounce * 0.25;
       rightFoot.position.y = 0.05 + bounce * 0.25;
+
+      seatedTorso.position.y = 1.12 + seatedBreath;
+      seatedTorso.rotation.x = -0.16 + seatedBreath * 0.6;
+      seatedHead.position.y = 1.88 + seatedBreath * 1.2;
+      seatedHead.rotation.y = Math.sin(elapsed * 0.45) * 0.18;
+      seatedHair.position.y = 1.98 + seatedBreath * 1.2;
+      seatedUpperArmLeft.rotation.x = -1.08 + typing * 0.35;
+      seatedUpperArmRight.rotation.x = -1.08 - typing * 0.35;
+      seatedForearmLeft.rotation.x = -0.64 - typing * 0.55;
+      seatedForearmRight.rotation.x = -0.64 + typing * 0.55;
+      seatedForearmLeft.position.y = 1.04 + typing * 0.03;
+      seatedForearmRight.position.y = 1.04 - typing * 0.03;
+      seatedThighLeft.rotation.x = Math.PI / 2 - 0.12 + seatedBreath * 0.2;
+      seatedThighRight.rotation.x = Math.PI / 2 - 0.12 + seatedBreath * 0.2;
+      seatedCalfLeft.rotation.x = 0.06 - seatedBreath * 0.5;
+      seatedCalfRight.rotation.x = 0.06 - seatedBreath * 0.5;
+      seatedFootLeft.rotation.x = typing * 0.08;
+      seatedFootRight.rotation.x = -typing * 0.08;
 
       cameraTarget.set(
         character.position.x + Math.sin(facing) * 3.4,
