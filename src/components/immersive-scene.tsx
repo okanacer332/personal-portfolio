@@ -1,6 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import {
+  type PointerEvent as ReactPointerEvent,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import * as THREE from "three";
 
 type ControlsState = {
@@ -112,6 +117,45 @@ function createPersianRugTexture() {
   return texture;
 }
 
+function createLinkPanelTexture(
+  title: string,
+  accent: string,
+  subtitle: string,
+) {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 256;
+
+  const context = canvas.getContext("2d");
+
+  if (!context) {
+    return null;
+  }
+
+  context.fillStyle = "#1b1714";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+
+  context.fillStyle = accent;
+  context.fillRect(18, 18, 24, canvas.height - 36);
+
+  context.fillStyle = "#f4ede3";
+  context.font = "700 54px 'Plus Jakarta Sans', sans-serif";
+  context.fillText(title, 72, 108);
+
+  context.fillStyle = "#cabfb2";
+  context.font = "500 28px 'Plus Jakarta Sans', sans-serif";
+  context.fillText(subtitle, 72, 158);
+
+  context.strokeStyle = "rgba(244, 237, 227, 0.18)";
+  context.lineWidth = 4;
+  context.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.anisotropy = 4;
+  return texture;
+}
+
 function addMesh<TGeometry extends THREE.BufferGeometry, TMaterial extends THREE.Material>(
   parent: THREE.Object3D,
   geometry: TGeometry,
@@ -132,11 +176,19 @@ function addMesh<TGeometry extends THREE.BufferGeometry, TMaterial extends THREE
 
 export default function ImmersiveScene() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const joystickRef = useRef<HTMLDivElement>(null);
+  const joystickPointerIdRef = useRef<number | null>(null);
+  const joystickInputRef = useRef({ x: 0, y: 0 });
   const controlsRef = useRef<ControlsState>({
     forward: false,
     backward: false,
     left: false,
     right: false,
+  });
+  const [joystickState, setJoystickState] = useState({
+    active: false,
+    x: 0,
+    y: 0,
   });
 
   useEffect(() => {
@@ -153,6 +205,36 @@ export default function ImmersiveScene() {
     const textureLoader = new THREE.TextureLoader();
     const rugTexture = createPersianRugTexture();
     const logoTexture = textureLoader.load("/acrtech.png");
+    const socialLinks = [
+      {
+        title: "GitHub",
+        subtitle: "github.com/okanacer332",
+        url: "https://github.com/okanacer332",
+        accent: "#b7bec8",
+      },
+      {
+        title: "LinkedIn",
+        subtitle: "linkedin.com/in/okanacer332",
+        url: "https://www.linkedin.com/in/okanacer332/",
+        accent: "#5ea3ff",
+      },
+      {
+        title: "Instagram",
+        subtitle: "instagram.com/okanacer332",
+        url: "https://www.instagram.com/okanacer332/",
+        accent: "#ff8f63",
+      },
+    ] as const;
+    const socialTextures = socialLinks
+      .map((link) =>
+        createLinkPanelTexture(link.title, link.accent, link.subtitle),
+      )
+      .filter((texture): texture is THREE.CanvasTexture => texture !== null);
+    const clickableMeshes: THREE.Mesh[] = [];
+    const raycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const pointerDown = { x: 0, y: 0 };
+    let pointerMoved = false;
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color("#ece3d7");
@@ -332,6 +414,32 @@ export default function ImmersiveScene() {
         }),
         position as [number, number, number],
         rotation as [number, number, number],
+      );
+    });
+
+    socialLinks.forEach((link, index) => {
+      const panel = addMesh(
+        room,
+        new THREE.PlaneGeometry(1.65, 0.78),
+        new THREE.MeshBasicMaterial({
+          map: socialTextures[index],
+          transparent: true,
+        }),
+        [roomWidth / 2 - 0.05, 1.6 + index * 1.08, -2.25 + index * 0.4],
+        [0, -Math.PI / 2, 0],
+      );
+      panel.userData.url = link.url;
+      clickableMeshes.push(panel);
+
+      addMesh(
+        room,
+        new THREE.BoxGeometry(0.08, 0.88, 1.75),
+        new THREE.MeshStandardMaterial({
+          color: "#d7cab9",
+          roughness: 0.9,
+        }),
+        [roomWidth / 2 - 0.02, 1.6 + index * 1.08, -2.25 + index * 0.4],
+        [0, -Math.PI / 2, 0],
       );
     });
 
@@ -715,6 +823,46 @@ export default function ImmersiveScene() {
       }
     };
 
+    const getClickableHit = (event: PointerEvent) => {
+      const rect = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(pointer, camera);
+
+      return raycaster.intersectObjects(clickableMeshes, false)[0];
+    };
+
+    const onCanvasPointerDown = (event: PointerEvent) => {
+      pointerDown.x = event.clientX;
+      pointerDown.y = event.clientY;
+      pointerMoved = false;
+    };
+
+    const onCanvasPointerMove = (event: PointerEvent) => {
+      if (
+        Math.abs(event.clientX - pointerDown.x) > 8 ||
+        Math.abs(event.clientY - pointerDown.y) > 8
+      ) {
+        pointerMoved = true;
+      }
+
+      const hit = getClickableHit(event);
+      renderer.domElement.style.cursor = hit ? "pointer" : isMobile ? "default" : "grab";
+    };
+
+    const onCanvasPointerUp = (event: PointerEvent) => {
+      if (pointerMoved) {
+        return;
+      }
+
+      const hit = getClickableHit(event);
+      const url = hit?.object.userData.url as string | undefined;
+
+      if (url) {
+        window.open(url, "_blank", "noopener,noreferrer");
+      }
+    };
+
     const resize = () => {
       const width = container.clientWidth;
       const height = container.clientHeight;
@@ -729,6 +877,10 @@ export default function ImmersiveScene() {
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("resize", resize);
+    renderer.domElement.addEventListener("pointerdown", onCanvasPointerDown);
+    renderer.domElement.addEventListener("pointermove", onCanvasPointerMove);
+    renderer.domElement.addEventListener("pointerup", onCanvasPointerUp);
+    renderer.domElement.style.cursor = isMobile ? "default" : "grab";
 
     resize();
 
@@ -738,15 +890,21 @@ export default function ImmersiveScene() {
       const delta = Math.min(clock.getDelta(), 0.032);
       const elapsed = clock.getElapsedTime();
       const controls = controlsRef.current;
+      const joystickX =
+        Math.abs(joystickInputRef.current.x) > 0.08 ? joystickInputRef.current.x : 0;
+      const joystickY =
+        Math.abs(joystickInputRef.current.y) > 0.08 ? joystickInputRef.current.y : 0;
+      const turnInput =
+        (controls.left ? 1 : 0) - (controls.right ? 1 : 0) - joystickX;
+      const inputZ =
+        (controls.forward ? 1 : 0) -
+        (controls.backward ? 1 : 0) -
+        joystickY;
 
-      if (controls.left) {
-        character.rotation.y += delta * 2.4;
-      }
-      if (controls.right) {
-        character.rotation.y -= delta * 2.4;
+      if (turnInput !== 0) {
+        character.rotation.y += delta * 2.2 * turnInput;
       }
 
-      const inputZ = (controls.forward ? 1 : 0) - (controls.backward ? 1 : 0);
       const speed = isMobile ? 2.25 : 2.75;
       const facing = character.rotation.y;
       const forwardX = -Math.sin(facing);
@@ -804,6 +962,9 @@ export default function ImmersiveScene() {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("resize", resize);
+      renderer.domElement.removeEventListener("pointerdown", onCanvasPointerDown);
+      renderer.domElement.removeEventListener("pointermove", onCanvasPointerMove);
+      renderer.domElement.removeEventListener("pointerup", onCanvasPointerUp);
 
       renderer.setAnimationLoop(null);
 
@@ -825,6 +986,7 @@ export default function ImmersiveScene() {
 
       logoTexture.dispose();
       rugTexture?.dispose();
+      socialTextures.forEach((texture) => texture.dispose());
       renderer.dispose();
 
       if (container.contains(renderer.domElement)) {
@@ -832,6 +994,81 @@ export default function ImmersiveScene() {
       }
     };
   }, []);
+
+  const updateJoystick = (clientX: number, clientY: number) => {
+    const joystick = joystickRef.current;
+
+    if (!joystick) {
+      return;
+    }
+
+    const rect = joystick.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    const limit = rect.width * 0.28;
+    let dx = clientX - centerX;
+    let dy = clientY - centerY;
+    const distance = Math.hypot(dx, dy);
+
+    if (distance > limit) {
+      dx = (dx / distance) * limit;
+      dy = (dy / distance) * limit;
+    }
+
+    joystickInputRef.current.x = dx / limit;
+    joystickInputRef.current.y = dy / limit;
+
+    setJoystickState({
+      active: true,
+      x: dx,
+      y: dy,
+    });
+  };
+
+  const resetJoystick = () => {
+    joystickPointerIdRef.current = null;
+    joystickInputRef.current.x = 0;
+    joystickInputRef.current.y = 0;
+    setJoystickState({
+      active: false,
+      x: 0,
+      y: 0,
+    });
+  };
+
+  const handleJoystickPointerDown = (
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) => {
+    event.preventDefault();
+    joystickPointerIdRef.current = event.pointerId;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    updateJoystick(event.clientX, event.clientY);
+  };
+
+  const handleJoystickPointerMove = (
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) => {
+    if (joystickPointerIdRef.current !== event.pointerId) {
+      return;
+    }
+
+    event.preventDefault();
+    updateJoystick(event.clientX, event.clientY);
+  };
+
+  const handleJoystickPointerEnd = (
+    event: ReactPointerEvent<HTMLDivElement>,
+  ) => {
+    if (joystickPointerIdRef.current !== event.pointerId) {
+      return;
+    }
+
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+
+    resetJoystick();
+  };
 
   return (
     <div className="relative h-full w-full">
@@ -845,81 +1082,28 @@ export default function ImmersiveScene() {
         WASD
       </div>
 
-      <div className="absolute bottom-4 left-4 grid grid-cols-3 gap-2 md:hidden">
-        <div />
-        <button
-          type="button"
-          className="h-12 w-12 rounded-2xl bg-white/78 text-sm font-semibold text-black/70 backdrop-blur active:scale-95"
-          onPointerDown={() => {
-            controlsRef.current.forward = true;
-          }}
-          onPointerUp={() => {
-            controlsRef.current.forward = false;
-          }}
-          onPointerLeave={() => {
-            controlsRef.current.forward = false;
-          }}
-          onPointerCancel={() => {
-            controlsRef.current.forward = false;
-          }}
+      <div className="absolute bottom-4 left-4 md:hidden">
+        <div
+          ref={joystickRef}
+          className="relative flex h-32 w-32 select-none items-center justify-center rounded-full border border-white/50 bg-white/28 shadow-[0_12px_30px_rgba(0,0,0,0.14)] backdrop-blur-xl touch-none"
+          onPointerDown={handleJoystickPointerDown}
+          onPointerMove={handleJoystickPointerMove}
+          onPointerUp={handleJoystickPointerEnd}
+          onPointerCancel={handleJoystickPointerEnd}
         >
-          W
-        </button>
-        <div />
-        <button
-          type="button"
-          className="h-12 w-12 rounded-2xl bg-white/78 text-sm font-semibold text-black/70 backdrop-blur active:scale-95"
-          onPointerDown={() => {
-            controlsRef.current.left = true;
-          }}
-          onPointerUp={() => {
-            controlsRef.current.left = false;
-          }}
-          onPointerLeave={() => {
-            controlsRef.current.left = false;
-          }}
-          onPointerCancel={() => {
-            controlsRef.current.left = false;
-          }}
-        >
-          A
-        </button>
-        <button
-          type="button"
-          className="h-12 w-12 rounded-2xl bg-white/78 text-sm font-semibold text-black/70 backdrop-blur active:scale-95"
-          onPointerDown={() => {
-            controlsRef.current.backward = true;
-          }}
-          onPointerUp={() => {
-            controlsRef.current.backward = false;
-          }}
-          onPointerLeave={() => {
-            controlsRef.current.backward = false;
-          }}
-          onPointerCancel={() => {
-            controlsRef.current.backward = false;
-          }}
-        >
-          S
-        </button>
-        <button
-          type="button"
-          className="h-12 w-12 rounded-2xl bg-white/78 text-sm font-semibold text-black/70 backdrop-blur active:scale-95"
-          onPointerDown={() => {
-            controlsRef.current.right = true;
-          }}
-          onPointerUp={() => {
-            controlsRef.current.right = false;
-          }}
-          onPointerLeave={() => {
-            controlsRef.current.right = false;
-          }}
-          onPointerCancel={() => {
-            controlsRef.current.right = false;
-          }}
-        >
-          D
-        </button>
+          <div className="absolute h-20 w-20 rounded-full border border-white/35" />
+          <div className="absolute h-2 w-2 rounded-full bg-black/30" />
+          <div
+            className={`absolute flex h-12 w-12 items-center justify-center rounded-full border border-white/65 bg-white/88 text-[11px] font-semibold uppercase tracking-[0.22em] text-black/55 shadow-[0_10px_24px_rgba(0,0,0,0.14)] transition-transform ${
+              joystickState.active ? "duration-75" : "duration-200"
+            }`}
+            style={{
+              transform: `translate(${joystickState.x}px, ${joystickState.y}px)`,
+            }}
+          >
+            Go
+          </div>
+        </div>
       </div>
     </div>
   );
