@@ -401,7 +401,6 @@ export default function ImmersiveScene() {
 
     [
       { position: [0, 3.15, -roomDepth / 2 + 0.04], rotation: [0, 0, 0] },
-      { position: [0, 3.15, roomDepth / 2 - 0.04], rotation: [0, Math.PI, 0] },
       { position: [-roomWidth / 2 + 0.04, 3.15, 0], rotation: [0, Math.PI / 2, 0] },
       { position: [roomWidth / 2 - 0.04, 3.15, 0], rotation: [0, -Math.PI / 2, 0] },
     ].forEach(({ position, rotation }) => {
@@ -425,22 +424,11 @@ export default function ImmersiveScene() {
           map: socialTextures[index],
           transparent: true,
         }),
-        [roomWidth / 2 - 0.05, 1.6 + index * 1.08, -2.25 + index * 0.4],
-        [0, -Math.PI / 2, 0],
+        [-2.1 + index * 2.1, 3.1, roomDepth / 2 - 0.04],
+        [0, Math.PI, 0],
       );
       panel.userData.url = link.url;
       clickableMeshes.push(panel);
-
-      addMesh(
-        room,
-        new THREE.BoxGeometry(0.08, 0.88, 1.75),
-        new THREE.MeshStandardMaterial({
-          color: "#d7cab9",
-          roughness: 0.9,
-        }),
-        [roomWidth / 2 - 0.02, 1.6 + index * 1.08, -2.25 + index * 0.4],
-        [0, -Math.PI / 2, 0],
-      );
     });
 
     addMesh(
